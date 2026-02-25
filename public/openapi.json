@@ -1,0 +1,1195 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "AutomatX API",
+    "description": "## Authentication\n\nProtected endpoints support two authentication methods:\n\n### 1. API Key (for automation / N8N)\nSend the header: `x-api-key: <API_SECRET_KEY>`\n\n### 2. Supabase Session (for admin UI)\nThe admin interface uses Supabase session cookies set after login at `/admin`.\n\n---\n\nAll error responses follow: `{ \"error\": \"message\" }`",
+    "version": "1.0.0",
+    "contact": {
+      "name": "AutomatX"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://161.97.130.48:5000",
+      "description": "Production"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "API Secret Key (for N8N / automation)"
+      },
+      "SupabaseSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "sb-access-token",
+        "description": "Supabase session cookie (set after admin login)"
+      }
+    },
+    "schemas": {
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": { "type": "integer", "example": 1 },
+          "limit": { "type": "integer", "example": 20 },
+          "total": { "type": "integer", "example": 42 },
+          "pages": { "type": "integer", "example": 3 }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string", "example": "Unauthorized" }
+        }
+      },
+      "ValidationError": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string", "example": "נתונים לא תקינים" },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "array", "items": { "type": "string" } },
+                "message": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "Lead": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string", "example": "ישראל ישראלי" },
+          "email": { "type": "string", "format": "email", "example": "israel@example.com" },
+          "phone": { "type": "string", "nullable": true, "example": "050-1234567" },
+          "message": { "type": "string", "nullable": true },
+          "source": {
+            "type": "string",
+            "enum": ["contact_form", "whatsapp", "booking"],
+            "example": "contact_form"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["new", "contacted", "in_progress", "closed"],
+            "example": "new"
+          },
+          "notes": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "LeadCreate": {
+        "type": "object",
+        "required": ["name", "email"],
+        "properties": {
+          "name": { "type": "string", "minLength": 2, "example": "ישראל ישראלי" },
+          "email": { "type": "string", "format": "email", "example": "israel@example.com" },
+          "phone": { "type": "string", "example": "050-1234567" },
+          "message": { "type": "string", "example": "אני מעוניין לשמוע עוד" },
+          "source": {
+            "type": "string",
+            "enum": ["contact_form", "whatsapp", "booking"],
+            "default": "contact_form"
+          }
+        }
+      },
+      "LeadUpdate": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["new", "contacted", "in_progress", "closed"]
+          },
+          "notes": { "type": "string" }
+        }
+      },
+      "Booking": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "leadId": { "type": "string", "format": "uuid" },
+          "date": { "type": "string", "format": "date", "example": "2026-03-15" },
+          "timeSlot": { "type": "string", "example": "10:00" },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "confirmed", "completed", "cancelled"],
+            "example": "pending"
+          },
+          "questionnaireCompleted": { "type": "boolean", "example": false },
+          "lead": { "$ref": "#/components/schemas/Lead" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "BookingCreate": {
+        "type": "object",
+        "required": ["name", "email", "date", "timeSlot"],
+        "properties": {
+          "name": { "type": "string", "minLength": 2, "example": "ישראל ישראלי" },
+          "email": { "type": "string", "format": "email", "example": "israel@example.com" },
+          "phone": { "type": "string", "example": "050-1234567" },
+          "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "example": "2026-03-15" },
+          "timeSlot": { "type": "string", "pattern": "^\\d{2}:\\d{2}$", "example": "10:00" }
+        }
+      },
+      "BookingUpdate": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["pending", "confirmed", "completed", "cancelled"]
+          },
+          "questionnaireCompleted": { "type": "boolean" }
+        }
+      },
+      "QuestionnaireCreate": {
+        "type": "object",
+        "required": ["bookingId"],
+        "properties": {
+          "bookingId": { "type": "string", "format": "uuid", "example": "550e8400-e29b-41d4-a716-446655440000" },
+          "businessDescription": { "type": "string", "example": "חברת SaaS לניהול לקוחות" },
+          "teamSize": { "type": "string", "example": "5-10" },
+          "painfulProcess": { "type": "string", "example": "הכנסת נתונים ידנית לאקסל" },
+          "currentHandling": { "type": "string", "example": "עובד עם טפסי גוגל" },
+          "weeklyTimeWaste": { "type": "string", "example": "10 שעות בשבוע" },
+          "existingSystems": { "type": "string", "example": "HubSpot, Slack" },
+          "additionalNotes": { "type": "string" }
+        }
+      },
+      "Post": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string", "example": "כיצד AI חוסך זמן בעסק שלך" },
+          "slug": { "type": "string", "example": "how-ai-saves-time" },
+          "content": { "type": "string", "description": "HTML content" },
+          "excerpt": { "type": "string", "nullable": true },
+          "metaTitle": { "type": "string", "nullable": true },
+          "metaDescription": { "type": "string", "nullable": true },
+          "featuredImage": { "type": "string", "nullable": true, "example": "/media/blog/123456-image.jpg" },
+          "tags": { "type": "array", "items": { "type": "string" }, "example": ["אוטומציה", "AI"] },
+          "status": { "type": "string", "enum": ["draft", "published"], "example": "published" },
+          "publishedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "PostCreate": {
+        "type": "object",
+        "required": ["title", "slug", "content"],
+        "properties": {
+          "title": { "type": "string", "example": "כיצד AI חוסך זמן בעסק שלך" },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "example": "how-ai-saves-time"
+          },
+          "content": { "type": "string", "example": "<p>תוכן הפוסט...</p>" },
+          "excerpt": { "type": "string" },
+          "metaTitle": { "type": "string" },
+          "metaDescription": { "type": "string" },
+          "featuredImage": { "type": "string", "example": "/media/blog/123456-image.jpg" },
+          "tags": { "type": "array", "items": { "type": "string" }, "default": [] },
+          "status": { "type": "string", "enum": ["draft", "published"], "default": "draft" }
+        }
+      },
+      "Service": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string", "example": "אוטומציה לעסקים" },
+          "slug": { "type": "string", "example": "business-automation" },
+          "subtitle": { "type": "string", "nullable": true },
+          "description": { "type": "string", "nullable": true },
+          "icon": { "type": "string", "nullable": true },
+          "features": { "type": "array", "items": { "type": "string" } },
+          "targetAudience": { "type": "string", "nullable": true },
+          "ctaText": { "type": "string", "nullable": true },
+          "displayOrder": { "type": "integer", "default": 0 },
+          "isActive": { "type": "boolean", "default": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ServiceCreate": {
+        "type": "object",
+        "required": ["title", "slug"],
+        "properties": {
+          "title": { "type": "string", "example": "אוטומציה לעסקים" },
+          "slug": { "type": "string", "example": "business-automation" },
+          "subtitle": { "type": "string" },
+          "description": { "type": "string" },
+          "icon": { "type": "string" },
+          "features": { "type": "array", "items": { "type": "string" }, "default": [] },
+          "targetAudience": { "type": "string" },
+          "ctaText": { "type": "string" },
+          "displayOrder": { "type": "integer", "default": 0 },
+          "isActive": { "type": "boolean", "default": true }
+        }
+      },
+      "Project": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string", "example": "אוטומציה לחברת לוגיסטיקה" },
+          "slug": { "type": "string", "example": "logistics-automation" },
+          "industry": { "type": "string", "nullable": true, "example": "לוגיסטיקה" },
+          "problem": { "type": "string", "nullable": true },
+          "solution": { "type": "string", "nullable": true },
+          "result": { "type": "string", "nullable": true },
+          "image": { "type": "string", "nullable": true },
+          "displayOrder": { "type": "integer", "default": 0 },
+          "isActive": { "type": "boolean", "default": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ProjectCreate": {
+        "type": "object",
+        "required": ["title", "slug"],
+        "properties": {
+          "title": { "type": "string", "example": "אוטומציה לחברת לוגיסטיקה" },
+          "slug": { "type": "string", "example": "logistics-automation" },
+          "industry": { "type": "string" },
+          "problem": { "type": "string" },
+          "solution": { "type": "string" },
+          "result": { "type": "string" },
+          "image": { "type": "string" },
+          "displayOrder": { "type": "integer", "default": 0 },
+          "isActive": { "type": "boolean", "default": true }
+        }
+      },
+      "SiteContent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "key": { "type": "string", "example": "hero.title" },
+          "value": { "type": "string", "example": "ברוכים הבאים ל-AutomatX" },
+          "section": { "type": "string", "nullable": true, "example": "hero" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SiteSetting": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "key": { "type": "string", "example": "contact.email" },
+          "value": { "description": "Any JSON value" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Subscriber": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "email": { "type": "string", "format": "email" },
+          "isActive": { "type": "boolean" },
+          "subscribedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["ok", "degraded"] },
+          "service": { "type": "string", "example": "automatx-web" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "uptimeSeconds": { "type": "integer" },
+          "checks": {
+            "type": "object",
+            "properties": {
+              "database": { "type": "string", "enum": ["ok", "down"] }
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [],
+  "tags": [
+    { "name": "Health", "description": "Server health and readiness checks" },
+    { "name": "Leads", "description": "Lead management (contact form submissions)" },
+    { "name": "Bookings", "description": "Booking / consultation session management" },
+    { "name": "Questionnaire", "description": "Pre-session questionnaire responses" },
+    { "name": "Blog", "description": "Blog posts CRUD and media upload" },
+    { "name": "Services", "description": "Services offered by AutomatX" },
+    { "name": "Projects", "description": "Case study projects portfolio" },
+    { "name": "Content", "description": "Dynamic site content (text keys)" },
+    { "name": "Settings", "description": "Site-wide configuration settings" },
+    { "name": "Subscribers", "description": "Newsletter subscriber management" }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "description": "Returns service liveness. Add `?check=db` to also verify database connectivity.",
+        "parameters": [
+          {
+            "name": "check",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["db"] },
+            "description": "Pass `db` to run a database readiness check"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" },
+                "examples": {
+                  "liveness": {
+                    "value": { "status": "ok", "service": "automatx-web", "timestamp": "2026-02-24T10:00:00Z", "uptimeSeconds": 3600 }
+                  },
+                  "readiness": {
+                    "value": { "status": "ok", "service": "automatx-web", "timestamp": "2026-02-24T10:00:00Z", "uptimeSeconds": 3600, "checks": { "database": "ok" } }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database is unreachable",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" },
+                "example": { "status": "degraded", "service": "automatx-web", "timestamp": "2026-02-24T10:00:00Z", "uptimeSeconds": 100, "checks": { "database": "down" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/leads": {
+      "post": {
+        "tags": ["Leads"],
+        "summary": "Create lead",
+        "description": "Public endpoint. Creates a new lead from contact form, WhatsApp, or other source.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LeadCreate" },
+              "example": {
+                "name": "ישראל ישראלי",
+                "email": "israel@example.com",
+                "phone": "050-1234567",
+                "message": "אשמח לשמוע עוד על השירותים",
+                "source": "contact_form"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Lead created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "id": { "type": "string", "format": "uuid" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationError" } } } },
+          "500": { "description": "Internal server error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "get": {
+        "tags": ["Leads"],
+        "summary": "List leads",
+        "description": "Admin only. Returns paginated list of leads with optional status filter.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["new", "contacted", "in_progress", "closed"] }, "description": "Filter by status" },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated leads list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "leads": { "type": "array", "items": { "$ref": "#/components/schemas/Lead" } },
+                    "pagination": { "$ref": "#/components/schemas/Pagination" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/leads/{id}": {
+      "get": {
+        "tags": ["Leads"],
+        "summary": "Get lead by ID",
+        "description": "Admin only. Returns a single lead including related bookings.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lead with bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/Lead" },
+                    { "type": "object", "properties": { "bookings": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } } } }
+                  ]
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Lead not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "put": {
+        "tags": ["Leads"],
+        "summary": "Update lead",
+        "description": "Admin only. Update lead status and/or notes.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LeadUpdate" },
+              "example": { "status": "contacted", "notes": "דיברנו בטלפון, מתעניין בשירות A" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated lead", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Lead" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationError" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/booking": {
+      "post": {
+        "tags": ["Bookings"],
+        "summary": "Create booking",
+        "description": "Public endpoint. Creates a booking and automatically creates or reuses a lead record by email.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BookingCreate" },
+              "example": {
+                "name": "ישראל ישראלי",
+                "email": "israel@example.com",
+                "phone": "050-1234567",
+                "date": "2026-03-15",
+                "timeSlot": "10:00"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Booking created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "bookingId": { "type": "string", "format": "uuid" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationError" } } } }
+        }
+      },
+      "get": {
+        "tags": ["Bookings"],
+        "summary": "List bookings",
+        "description": "Admin only. Returns paginated bookings with lead details.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["pending", "confirmed", "completed", "cancelled"] } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated bookings list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "bookings": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } },
+                    "pagination": { "$ref": "#/components/schemas/Pagination" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/booking/{id}": {
+      "get": {
+        "tags": ["Bookings"],
+        "summary": "Get booking by ID",
+        "description": "Admin only. Includes lead details and questionnaire response if submitted.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Booking with related data", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Booking" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Booking not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "put": {
+        "tags": ["Bookings"],
+        "summary": "Update booking",
+        "description": "Admin only. Update booking status or mark questionnaire as completed.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BookingUpdate" },
+              "example": { "status": "confirmed" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated booking", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Booking" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/questionnaire": {
+      "post": {
+        "tags": ["Questionnaire"],
+        "summary": "Submit questionnaire",
+        "description": "Public endpoint. Submits pre-session questionnaire for a booking. One submission per booking (returns 409 if duplicate).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/QuestionnaireCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Questionnaire submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "id": { "type": "string", "format": "uuid" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationError" } } } },
+          "404": { "description": "Booking not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Questionnaire already submitted for this booking", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "get": {
+        "tags": ["Questionnaire"],
+        "summary": "Get questionnaire by booking ID",
+        "description": "Admin only. Retrieves questionnaire response for a specific booking.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "bookingId", "in": "query", "required": true, "schema": { "type": "string", "format": "uuid" }, "description": "The booking UUID" }
+        ],
+        "responses": {
+          "200": { "description": "Questionnaire response with booking and lead", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/QuestionnaireCreate" } } } },
+          "400": { "description": "Missing bookingId", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Questionnaire not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/blog/posts": {
+      "get": {
+        "tags": ["Blog"],
+        "summary": "List blog posts",
+        "description": "Public: returns published posts only. Authenticated users can request drafts with `?status=draft`.",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["published", "draft"] }, "description": "Default: `published`. Drafts require authentication." },
+          { "name": "tag", "in": "query", "schema": { "type": "string" }, "description": "Filter by tag" },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 9, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated posts (summary fields only)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "posts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "title": { "type": "string" },
+                          "slug": { "type": "string" },
+                          "excerpt": { "type": "string", "nullable": true },
+                          "featuredImage": { "type": "string", "nullable": true },
+                          "tags": { "type": "array", "items": { "type": "string" } },
+                          "status": { "type": "string" },
+                          "publishedAt": { "type": "string", "format": "date-time", "nullable": true },
+                          "createdAt": { "type": "string", "format": "date-time" }
+                        }
+                      }
+                    },
+                    "pagination": { "$ref": "#/components/schemas/Pagination" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Blog"],
+        "summary": "Create post",
+        "description": "Admin only. Creates a new blog post. If `status` is `published`, sets `publishedAt` automatically.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PostCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Post created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "post": { "$ref": "#/components/schemas/Post" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationError" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Slug already exists", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/blog/posts/{id}": {
+      "get": {
+        "tags": ["Blog"],
+        "summary": "Get post by slug or ID",
+        "description": "Public: returns published posts only. Authenticated users can also retrieve drafts. The `{id}` param accepts either a UUID or the post slug.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Post UUID or slug" }
+        ],
+        "responses": {
+          "200": { "description": "Full post (all fields)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Post" } } } },
+          "404": { "description": "Post not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "put": {
+        "tags": ["Blog"],
+        "summary": "Update post",
+        "description": "Admin only. Partial update — only send the fields you want to change. If changing `status` to `published` and `publishedAt` is not set, it will be set automatically.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PostCreate" },
+              "description": "All fields are optional for partial update"
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated post", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Post" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Post not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Slug already exists", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Blog"],
+        "summary": "Delete post",
+        "description": "Admin only. Permanently deletes a post.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Deleted", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean" } } } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Post not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/blog/upload-media": {
+      "post": {
+        "tags": ["Blog"],
+        "summary": "Upload media file",
+        "description": "Admin only. Uploads an image file. SVG is blocked for security. Max size: 10MB. Accepted: JPEG, PNG, WebP, GIF.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary", "description": "Image file (JPEG/PNG/WebP/GIF, max 10MB)" },
+                  "folder": {
+                    "type": "string",
+                    "enum": ["blog", "services", "general"],
+                    "default": "blog",
+                    "description": "Upload destination folder"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "File uploaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "url": { "type": "string", "example": "/media/blog/1740384000000-image.jpg" },
+                    "filename": { "type": "string", "example": "1740384000000-image.jpg" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid file or folder", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/services": {
+      "get": {
+        "tags": ["Services"],
+        "summary": "List services",
+        "description": "Public: returns active services only, ordered by `displayOrder`. Pass `?includeInactive=true` (requires auth) to get all services.",
+        "parameters": [
+          { "name": "includeInactive", "in": "query", "schema": { "type": "boolean" }, "description": "Include inactive services (requires auth)" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Services list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "services": { "type": "array", "items": { "$ref": "#/components/schemas/Service" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Services"],
+        "summary": "Create service",
+        "description": "Admin only.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ServiceCreate" } }
+          }
+        },
+        "responses": {
+          "201": { "description": "Service created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Service" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/services/{id}": {
+      "patch": {
+        "tags": ["Services"],
+        "summary": "Update service",
+        "description": "Admin only. Partial update.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ServiceCreate" } } }
+        },
+        "responses": {
+          "200": { "description": "Updated service", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Service" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Service not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Services"],
+        "summary": "Delete service",
+        "description": "Admin only.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Deleted", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean" } } } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/projects": {
+      "get": {
+        "tags": ["Projects"],
+        "summary": "List projects",
+        "description": "Public: returns active projects only, ordered by `displayOrder`. Pass `?includeInactive=true` (requires auth) to get all.",
+        "parameters": [
+          { "name": "includeInactive", "in": "query", "schema": { "type": "boolean" }, "description": "Include inactive projects (requires auth)" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Projects list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "projects": { "type": "array", "items": { "$ref": "#/components/schemas/Project" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Projects"],
+        "summary": "Create project",
+        "description": "Admin only.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectCreate" } } }
+        },
+        "responses": {
+          "201": { "description": "Project created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Project" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/projects/{id}": {
+      "patch": {
+        "tags": ["Projects"],
+        "summary": "Update project",
+        "description": "Admin only. Partial update.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectCreate" } } }
+        },
+        "responses": {
+          "200": { "description": "Updated project", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Project" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Project not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Projects"],
+        "summary": "Delete project",
+        "description": "Admin only.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Deleted", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean" } } } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/content": {
+      "get": {
+        "tags": ["Content"],
+        "summary": "Get site content",
+        "description": "Public endpoint. Returns all dynamic text content. Use `?section=hero` to filter by section.",
+        "parameters": [
+          { "name": "section", "in": "query", "schema": { "type": "string" }, "description": "Filter by section name (e.g. `hero`, `about`, `footer`)" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Content items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "content": { "type": "array", "items": { "$ref": "#/components/schemas/SiteContent" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Content"],
+        "summary": "Update site content",
+        "description": "Admin only. Bulk upsert content items by key.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["items"],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "required": ["key", "value"],
+                      "properties": {
+                        "key": { "type": "string", "example": "hero.title" },
+                        "value": { "type": "string", "example": "ברוכים הבאים" },
+                        "section": { "type": "string", "nullable": true, "example": "hero" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Content updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "updated": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "tags": ["Settings"],
+        "summary": "Get site settings",
+        "description": "Admin only. Returns all site settings (JSON values).",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "responses": {
+          "200": {
+            "description": "Settings list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "settings": { "type": "array", "items": { "$ref": "#/components/schemas/SiteSetting" } }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "put": {
+        "tags": ["Settings"],
+        "summary": "Update site settings",
+        "description": "Admin only. Bulk upsert settings by key. Values can be any JSON type.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["items"],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "required": ["key", "value"],
+                      "properties": {
+                        "key": { "type": "string", "example": "contact.email" },
+                        "value": { "description": "Any JSON value", "example": "hello@automatx.co.il" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Settings updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "updated": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/subscribers": {
+      "post": {
+        "tags": ["Subscribers"],
+        "summary": "Subscribe to newsletter",
+        "description": "Public endpoint. If the email was previously deactivated, it will be reactivated.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "israel@example.com" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Subscribed", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean" } } } } } },
+          "200": { "description": "Reactivated (was previously unsubscribed)", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean" }, "message": { "type": "string" } } } } } },
+          "400": { "description": "Invalid email", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Email already subscribed and active", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "get": {
+        "tags": ["Subscribers"],
+        "summary": "List subscribers",
+        "description": "Admin only.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated subscribers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subscribers": { "type": "array", "items": { "$ref": "#/components/schemas/Subscriber" } },
+                    "pagination": { "$ref": "#/components/schemas/Pagination" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Subscribers"],
+        "summary": "Remove subscriber",
+        "description": "Admin only. Default mode is `deactivate` (soft). Use `?mode=delete` for permanent removal.",
+        "security": [{ "ApiKeyAuth": [] }, { "SupabaseSession": [] }],
+        "parameters": [
+          { "name": "email", "in": "query", "required": true, "schema": { "type": "string", "format": "email" } },
+          { "name": "mode", "in": "query", "schema": { "type": "string", "enum": ["deactivate", "delete"], "default": "deactivate" }, "description": "`deactivate` = soft remove, `delete` = permanent" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscriber removed/deactivated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "mode": { "type": "string", "enum": ["deactivate", "delete"] }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Missing email", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Subscriber not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    }
+  }
+}
