@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-export const MILESTONES = [
+const MILESTONES = [
   {
     title: "תעשייה וניהול",
     description:
