@@ -27,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-export const SERVICES_DATA = [
+const SERVICES_DATA = [
   {
     id: "automation",
     title: "התהליך שגונב לך שעות? הוא יכול לרוץ לבד.",
